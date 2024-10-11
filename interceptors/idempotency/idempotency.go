@@ -21,7 +21,7 @@ func SubscriberInterceptor(st Storage) eventbus.SubscriberInterceptor {
 
 		defer func() {
 			err = st.Unlock(ctx, md.Type, md.ID)
-		}
+		}()
 
 		if err = handler(ctx, e); err != nil {
 			return err
