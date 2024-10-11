@@ -13,7 +13,7 @@ func SubscriberInterceptor(st Storage) eventbus.SubscriberInterceptor {
 	return func(ctx context.Context, md *event.Metadata, e interface{}, handler eventbus.Handler) (err error) {
 		if err = st.Lock(ctx, md.Type, md.ID); err != nil {
 			if errors.Is(err, ErrEventReprocessing) {
-				return eventbus.NewUnprocessableEventError(fmt.Errorf("idempotency: event [%s] with id [%s] is not unique", md.Type, md.ID))
+				return eventbus.NewUnprocessableEventError(fmt.Errorf("%w event [%s] with id [%s]", md.Type, md.ID))
 			}
 
 			return fmt.Errorf("idempotency: marking event [%s] id [%s] for processing: %w", md.Type, md.ID, err)
