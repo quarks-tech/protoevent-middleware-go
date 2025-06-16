@@ -9,13 +9,13 @@ import (
 	"github.com/quarks-tech/protoevent-go/pkg/eventbus"
 )
 
-type HandlerFunc func(p interface{}) (err error)
+type HandlerFunc func(p any) (err error)
 
-type HandlerFuncContext func(ctx context.Context, p interface{}) (err error)
+type HandlerFuncContext func(ctx context.Context, p any) (err error)
 
 func SubscriberInterceptor(opts ...Option) eventbus.SubscriberInterceptor {
 	o := evaluateOptions(opts)
-	return func(ctx context.Context, md *event.Metadata, event interface{}, handler eventbus.Handler) (err error) {
+	return func(ctx context.Context, md *event.Metadata, event any, handler eventbus.Handler) (err error) {
 		defer func() {
 			if r := recover(); r != nil {
 				err = recoverFrom(ctx, r, o.handlerFunc)
@@ -26,7 +26,7 @@ func SubscriberInterceptor(opts ...Option) eventbus.SubscriberInterceptor {
 	}
 }
 
-func recoverFrom(ctx context.Context, p interface{}, r HandlerFuncContext) error {
+func recoverFrom(ctx context.Context, p any, r HandlerFuncContext) error {
 	if r != nil {
 		return r(ctx, p)
 	}
@@ -36,7 +36,7 @@ func recoverFrom(ctx context.Context, p interface{}, r HandlerFuncContext) error
 }
 
 type PanicError struct {
-	Panic interface{}
+	Panic any
 	Stack []byte
 }
 

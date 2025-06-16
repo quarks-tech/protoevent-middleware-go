@@ -11,7 +11,7 @@ type validatable interface {
 	ValidateAll() error
 }
 
-func validate(event interface{}) error {
+func validate(event any) error {
 	if v, ok := event.(validatable); ok {
 		return v.ValidateAll()
 	}
@@ -20,7 +20,7 @@ func validate(event interface{}) error {
 }
 
 func SubscriberInterceptor() eventbus.SubscriberInterceptor {
-	return func(ctx context.Context, md *event.Metadata, event interface{}, handler eventbus.Handler) error {
+	return func(ctx context.Context, md *event.Metadata, event any, handler eventbus.Handler) error {
 		if err := validate(event); err != nil {
 			return eventbus.NewUnprocessableEventError(err)
 		}
