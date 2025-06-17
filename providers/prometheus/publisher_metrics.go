@@ -65,7 +65,7 @@ func (m *PublisherMetrics) PublisherInterceptor(opts ...Option) eventbus.Publish
 	o.apply(opts)
 
 	return func(ctx context.Context, name string, e any, p *eventbus.PublisherImpl, pf eventbus.PublishFn, publishOpts ...eventbus.PublishOption) error {
-		eventExchange, eventName := extractPublisherEventInfo(name, e)
+		eventExchange, eventName := extractEventInfo(name)
 		m.publisherStartedCounter.WithLabelValues(eventExchange, eventName).Inc()
 		var startTime time.Time
 		if m.publisherHandledHistogram != nil {
@@ -74,45 +74,31 @@ func (m *PublisherMetrics) PublisherInterceptor(opts ...Option) eventbus.Publish
 		err := pf(ctx, name, e, p, publishOpts...)
 		status := matchEventStatus(err)
 		m.publisherHandledCounter.WithLabelValues(eventExchange, eventName, status).Inc()
-		if m.publisherHandledHistogram != nil {
-			duration := time.Since(startTime).Seconds()
-			observer := m.publisherHandledHistogram.WithLabelValues(eventExchange, eventName)
-			if o.exemplarFromContext != nil {
-				if exemplar := o.exemplarFromContext(ctx); exemplar != nil {
-					observer.(prometheus.ExemplarObserver).ObserveWithExemplar(duration, exemplar)
-				} else {
-					observer.Observe(duration)
-				}
-			} else {
-				observer.Observe(duration)
-			}
+
+		if m.publisherHandledHistogram == nil {
+			return err
 		}
+
+		duration := time.Since(startTime).Seconds()
+		observer := m.publisherHandledHistogram.WithLabelValues(eventExchange, eventName)
+		if o.exemplarFromContext == nil {
+			observer.Observe(duration)
+
+			return err
+		}
+
+		exemplar := o.exemplarFromContext(ctx)
+		exemplarObserver, ok := observer.(prometheus.ExemplarObserver)
+		if exemplar != nil && ok {
+			exemplarObserver.ObserveWithExemplar(duration, exemplar)
+
+			return err
+		}
+
+		observer.Observe(duration)
 
 		return err
 	}
-}
-
-func extractPublisherEventInfo(fullEventName string, event any) (eventExchange, eventName string) {
-	if fullEventName == "" {
-		return "unknown", "unknown"
-	}
-	lastDotIndex := -1
-	for i := len(fullEventName) - 1; i >= 0; i-- {
-		if fullEventName[i] == '.' {
-			lastDotIndex = i
-			break
-		}
-	}
-
-	if lastDotIndex != -1 && lastDotIndex < len(fullEventName)-1 {
-		eventExchange = fullEventName[:lastDotIndex]
-		eventName = fullEventName[lastDotIndex+1:]
-	} else {
-		eventExchange = "unknown"
-		eventName = fullEventName
-	}
-
-	return eventExchange, eventName
 }
 
 func (m *PublisherMetrics) MustRegister(registry prometheus.Registerer) {
@@ -131,11 +117,5 @@ func (m *PublisherMetrics) Register(registry prometheus.Registerer) error {
 		collectors = append(collectors, m.publisherHandledHistogram)
 	}
 
-	for _, collector := range collectors {
-		if err := registry.Register(collector); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return registerCollectors(registry, collectors...)
 }

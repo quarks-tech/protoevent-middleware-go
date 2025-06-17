@@ -66,26 +66,34 @@ func (m *SubscriberMetrics) SubscriberInterceptor(opts ...Option) eventbus.Subsc
 	o.apply(opts)
 
 	return func(ctx context.Context, md *event.Metadata, e any, handler eventbus.Handler) error {
-		eventQueue := o.getEventQueue(ctx)
-		eventName := extractEventName(md.Type)
-		m.subscriberStartedCounter.WithLabelValues(eventQueue, eventName).Inc()
+		eventQueue := o.getEventQueue()
+		m.subscriberStartedCounter.WithLabelValues(eventQueue, md.Type).Inc()
 		startTime := time.Now()
 		err := handler(ctx, e)
 		status := matchEventStatus(err)
-		m.subscriberHandledCounter.WithLabelValues(eventQueue, eventName, status).Inc()
-		if m.subscriberHandledHistogram != nil {
-			duration := time.Since(startTime).Seconds()
-			observer := m.subscriberHandledHistogram.WithLabelValues(eventQueue, eventName)
-			if o.exemplarFromContext != nil {
-				if exemplar := o.exemplarFromContext(ctx); exemplar != nil {
-					observer.(prometheus.ExemplarObserver).ObserveWithExemplar(duration, exemplar)
-				} else {
-					observer.Observe(duration)
-				}
-			} else {
-				observer.Observe(duration)
-			}
+		m.subscriberHandledCounter.WithLabelValues(eventQueue, md.Type, status).Inc()
+
+		if m.subscriberHandledHistogram == nil {
+			return err
 		}
+
+		duration := time.Since(startTime).Seconds()
+		observer := m.subscriberHandledHistogram.WithLabelValues(eventQueue, md.Type)
+		if o.exemplarFromContext == nil {
+			observer.Observe(duration)
+
+			return err
+		}
+
+		exemplar := o.exemplarFromContext(ctx)
+		exemplarObserver, ok := observer.(prometheus.ExemplarObserver)
+		if exemplar != nil && ok {
+			exemplarObserver.ObserveWithExemplar(duration, exemplar)
+
+			return err
+		}
+
+		observer.Observe(duration)
 
 		return err
 	}
@@ -107,11 +115,5 @@ func (m *SubscriberMetrics) Register(registry prometheus.Registerer) error {
 		collectors = append(collectors, m.subscriberHandledHistogram)
 	}
 
-	for _, collector := range collectors {
-		if err := registry.Register(collector); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return registerCollectors(registry, collectors...)
 }

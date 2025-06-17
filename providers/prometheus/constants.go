@@ -3,6 +3,7 @@ package prometheus
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/quarks-tech/protoevent-go/pkg/eventbus"
 )
@@ -32,22 +33,16 @@ func matchEventStatus(err error) string {
 	}
 }
 
-func extractEventName(eventName string) string {
-	if eventName == "" {
-		return "unknown"
+func extractEventInfo(fullEventName string) (eventExchange, eventName string) {
+	if fullEventName == "" {
+		return "unknown", "unknown"
 	}
 
-	lastDotIndex := len(eventName) - 1
-	for i := len(eventName) - 1; i >= 0; i-- {
-		if eventName[i] == '.' {
-			lastDotIndex = i
-			break
-		}
+	lastDotIndex := strings.LastIndex(fullEventName, ".")
+
+	if lastDotIndex != -1 && lastDotIndex < len(fullEventName)-1 {
+		return fullEventName[:lastDotIndex], fullEventName[lastDotIndex+1:]
 	}
 
-	if lastDotIndex < len(eventName)-1 {
-		return eventName[lastDotIndex+1:]
-	}
-
-	return eventName
+	return "unknown", fullEventName
 }

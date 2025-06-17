@@ -211,7 +211,7 @@ func TestExtractPublisherEventInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			exchange, eventName := extractPublisherEventInfo(tt.fullEventName, nil)
+			exchange, eventName := extractPublisherEventInfo(tt.fullEventName)
 			if exchange != tt.expectedExchange {
 				t.Errorf("Expected exchange %s, got %s", tt.expectedExchange, exchange)
 			}

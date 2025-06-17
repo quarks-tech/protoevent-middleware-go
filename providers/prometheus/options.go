@@ -95,7 +95,7 @@ func (o *options) apply(opts []Option) {
 	}
 }
 
-func (o *options) getEventQueue(ctx context.Context) string {
+func (o *options) getEventQueue() string {
 	if o.eventQueue != "" {
 		return o.eventQueue
 	}
