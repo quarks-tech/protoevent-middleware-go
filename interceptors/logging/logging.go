@@ -35,7 +35,7 @@ func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventb
 			"event_data_content_type": md.DataContentType,
 			"processing_time":         time.Since(start).String(),
 			"total_time":              time.Since(md.Time).String(),
-		} // fields are named as indexed fields in log storage
+		}
 
 		fromContext(ctx).WithFields(fields).Errorf("error while handling event: %s %+v", hErr.Error(), e)
 
