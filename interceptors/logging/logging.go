@@ -8,19 +8,18 @@ import (
 
 	"github.com/quarks-tech/protoevent-go/pkg/event"
 	"github.com/quarks-tech/protoevent-go/pkg/eventbus"
-
-	"github.com/quarks-tech/protoevent-middleware-go/interceptors/eventstart"
 )
+
+var Now = time.Now
 
 func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventbus.SubscriberInterceptor {
 	return func(ctx context.Context, md *event.Metadata, e any, handler eventbus.Handler) error {
+		start := Now()
+
 		ctx = withContext(
-			eventstart.WithContext(
-				withContext(
-					ctx,
-					fromContext(ctx),
-				),
-				eventstart.Now(),
+			withContext(
+				ctx,
+				fromContext(ctx),
 			),
 			logrus.WithField("request_id", md.ID),
 		)
@@ -31,11 +30,10 @@ func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventb
 		}
 
 		fields := logrus.Fields{
-			"client_version": md.SpecVersion,
-			"referer":        md.Source,
-			"method":         md.Type,
-			"path":           md.DataContentType,
-			"response_time":  time.Since(eventstart.FromContext(ctx)).String(),
+			"source":       md.Source,
+			"event_name":   md.Type,
+			"content_type": md.DataContentType,
+			"process_time": time.Since(start).String(),
 		} // fields are named as indexed fields in log storage
 
 		fromContext(ctx).WithFields(fields).Errorf("error while handling event: %s %+v", hErr.Error(), e)
