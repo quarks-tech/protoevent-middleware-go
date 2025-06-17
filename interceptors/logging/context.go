@@ -2,6 +2,7 @@ package logging
 
 import (
 	"context"
+
 	"github.com/sirupsen/logrus"
 )
 

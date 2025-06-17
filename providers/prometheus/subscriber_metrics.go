@@ -8,8 +8,6 @@ import (
 
 	"github.com/quarks-tech/protoevent-go/pkg/event"
 	"github.com/quarks-tech/protoevent-go/pkg/eventbus"
-
-	"github.com/quarks-tech/protoevent-middleware-go/interceptors/eventstart"
 )
 
 type SubscriberMetrics struct {
@@ -64,26 +62,22 @@ func (m *SubscriberMetrics) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (m *SubscriberMetrics) SubscriberInterceptor(opts ...Option) eventbus.SubscriberInterceptor {
-	var options options
-	options.apply(opts)
+	var o options
+	o.apply(opts)
 
 	return func(ctx context.Context, md *event.Metadata, e any, handler eventbus.Handler) error {
-		eventQueue := options.getEventQueue(ctx)
-		_, eventName := extractEventInfo(md.Type, e)
+		eventQueue := o.getEventQueue(ctx)
+		eventName := extractEventName(md.Type)
 		m.subscriberStartedCounter.WithLabelValues(eventQueue, eventName).Inc()
-		var startTime time.Time
-		if m.subscriberHandledHistogram != nil {
-			startTime = time.Now()
-		}
-		ctx = eventstart.WithContext(ctx, time.Now())
+		startTime := time.Now()
 		err := handler(ctx, e)
-		status := getEventStatus(err)
+		status := matchEventStatus(err)
 		m.subscriberHandledCounter.WithLabelValues(eventQueue, eventName, status).Inc()
 		if m.subscriberHandledHistogram != nil {
 			duration := time.Since(startTime).Seconds()
 			observer := m.subscriberHandledHistogram.WithLabelValues(eventQueue, eventName)
-			if options.exemplarFromContext != nil {
-				if exemplar := options.exemplarFromContext(ctx); exemplar != nil {
+			if o.exemplarFromContext != nil {
+				if exemplar := o.exemplarFromContext(ctx); exemplar != nil {
 					observer.(prometheus.ExemplarObserver).ObserveWithExemplar(duration, exemplar)
 				} else {
 					observer.Observe(duration)

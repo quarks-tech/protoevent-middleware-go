@@ -72,7 +72,7 @@ func (m *PublisherMetrics) PublisherInterceptor(opts ...Option) eventbus.Publish
 			startTime = time.Now()
 		}
 		err := pf(ctx, name, e, p, publishOpts...)
-		status := getEventStatus(err)
+		status := matchEventStatus(err)
 		m.publisherHandledCounter.WithLabelValues(eventExchange, eventName, status).Inc()
 		if m.publisherHandledHistogram != nil {
 			duration := time.Since(startTime).Seconds()

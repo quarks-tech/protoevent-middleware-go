@@ -168,10 +168,7 @@ func TestExtractEventInfo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			queue, eventName := extractEventInfo(tt.eventName, nil)
-			if queue != tt.expectedQueue {
-				t.Errorf("Expected queue %s, got %s", tt.expectedQueue, queue)
-			}
+			eventName := extractEventName(tt.eventName)
 			if eventName != tt.expectedEventName {
 				t.Errorf("Expected event name %s, got %s", tt.expectedEventName, eventName)
 			}
@@ -241,14 +238,119 @@ func TestGetEventStatus(t *testing.T) {
 			err:      errors.New("test error"),
 			expected: StatusError,
 		},
+		{
+			name:     "unprocessable event error",
+			err:      eventbus.NewUnprocessableEventError(errors.New("invalid format")),
+			expected: StatusUnprocessable,
+		},
+		{
+			name:     "context cancelled",
+			err:      context.Canceled,
+			expected: StatusCancelled,
+		},
+		{
+			name:     "context deadline exceeded",
+			err:      context.DeadlineExceeded,
+			expected: StatusTimeout,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			status := getEventStatus(tt.err)
+			status := matchEventStatus(tt.err)
 			if status != tt.expected {
 				t.Errorf("Expected status %s, got %s", tt.expected, status)
 			}
 		})
+	}
+}
+
+func TestSubscriberMetricsWithUnprocessableError(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	subMetrics := NewSubscriberMetrics()
+	subMetrics.MustRegister(registry)
+
+	interceptor := subMetrics.SubscriberInterceptor(
+		WithEventQueue("unprocessable.test.queue"),
+	)
+
+	md := &event.Metadata{
+		Type: "example.books.v1.BookDeleted",
+		ID:   "test-unprocessable-123",
+	}
+
+	handler := func(ctx context.Context, e interface{}) error {
+		return eventbus.NewUnprocessableEventError(errors.New("invalid event format"))
+	}
+
+	ctx := context.Background()
+	err := interceptor(ctx, md, "test-event-data", handler)
+	if err == nil {
+		t.Fatal("Expected error but got nil")
+	}
+
+	counter := testutil.ToFloat64(subMetrics.subscriberHandledCounter.WithLabelValues("unprocessable.test.queue", "BookDeleted", "UNPROCESSABLE"))
+	if counter != 1 {
+		t.Errorf("Expected unprocessable counter to be 1, got %f", counter)
+	}
+}
+
+func TestSubscriberMetricsWithCancellation(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	subMetrics := NewSubscriberMetrics()
+	subMetrics.MustRegister(registry)
+
+	interceptor := subMetrics.SubscriberInterceptor(
+		WithEventQueue("cancelled.test.queue"),
+	)
+
+	md := &event.Metadata{
+		Type: "example.books.v1.BookDeleted",
+		ID:   "test-cancelled-123",
+	}
+
+	handler := func(ctx context.Context, e interface{}) error {
+		return context.Canceled
+	}
+
+	ctx := context.Background()
+	err := interceptor(ctx, md, "test-event-data", handler)
+	if err == nil {
+		t.Fatal("Expected error but got nil")
+	}
+
+	counter := testutil.ToFloat64(subMetrics.subscriberHandledCounter.WithLabelValues("cancelled.test.queue", "BookDeleted", "CANCELLED"))
+	if counter != 1 {
+		t.Errorf("Expected cancelled counter to be 1, got %f", counter)
+	}
+}
+
+func TestSubscriberMetricsWithTimeout(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	subMetrics := NewSubscriberMetrics()
+	subMetrics.MustRegister(registry)
+
+	interceptor := subMetrics.SubscriberInterceptor(
+		WithEventQueue("timeout.test.queue"),
+	)
+
+	md := &event.Metadata{
+		Type: "example.books.v1.BookDeleted",
+		ID:   "test-timeout-123",
+	}
+
+	handler := func(ctx context.Context, e interface{}) error {
+		return context.DeadlineExceeded
+	}
+
+	ctx := context.Background()
+	err := interceptor(ctx, md, "test-event-data", handler)
+	if err == nil {
+		t.Fatal("Expected error but got nil")
+	}
+
+	counter := testutil.ToFloat64(subMetrics.subscriberHandledCounter.WithLabelValues("timeout.test.queue", "BookDeleted", "TIMEOUT"))
+	if counter != 1 {
+		t.Errorf("Expected timeout counter to be 1, got %f", counter)
 	}
 }

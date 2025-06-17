@@ -21,7 +21,7 @@ func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventb
 				ctx,
 				fromContext(ctx),
 			),
-			logrus.WithField("request_id", md.ID),
+			logrus.WithField("event_id", md.ID),
 		)
 
 		hErr := handler(ctx, e)
@@ -30,10 +30,11 @@ func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventb
 		}
 
 		fields := logrus.Fields{
-			"source":       md.Source,
-			"event_name":   md.Type,
-			"content_type": md.DataContentType,
-			"process_time": time.Since(start).String(),
+			"event_source":            md.Source,
+			"event_type":              md.Type,
+			"event_data_content_type": md.DataContentType,
+			"processing_time":         time.Since(start).String(),
+			"total_time":              time.Since(md.Time).String(),
 		} // fields are named as indexed fields in log storage
 
 		fromContext(ctx).WithFields(fields).Errorf("error while handling event: %s %+v", hErr.Error(), e)
