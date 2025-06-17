@@ -12,12 +12,6 @@ import (
 	"github.com/quarks-tech/protoevent-middleware-go/interceptors/eventstart"
 )
 
-var Now = time.Now
-
-type WithContext func(ctx context.Context, logger *logrus.Entry) context.Context
-
-type FromContext func(context.Context) *logrus.Entry
-
 func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventbus.SubscriberInterceptor {
 	return func(ctx context.Context, md *event.Metadata, e any, handler eventbus.Handler) error {
 		ctx = withContext(
@@ -26,7 +20,7 @@ func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventb
 					ctx,
 					fromContext(ctx),
 				),
-				Now(),
+				eventstart.Now(),
 			),
 			logrus.WithField("request_id", md.ID),
 		)

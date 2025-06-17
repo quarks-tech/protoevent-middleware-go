@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var Now = time.Now
+
 type key struct{}
 
 func WithContext(ctx context.Context, t time.Time) context.Context {
@@ -16,5 +18,5 @@ func FromContext(ctx context.Context) time.Time {
 		return l.(time.Time)
 	}
 
-	return time.Time{}
+	return Now()
 }
