@@ -17,11 +17,8 @@ func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventb
 		start := Now()
 
 		ctx = withContext(
-			withContext(
-				ctx,
-				fromContext(ctx),
-			),
-			logrus.WithField("event_id", md.ID),
+			ctx,
+			fromContext(ctx),
 		)
 
 		hErr := handler(ctx, e)
@@ -30,6 +27,7 @@ func LoggingInterceptor(withContext WithContext, fromContext FromContext) eventb
 		}
 
 		fields := logrus.Fields{
+			"event_id":                md.ID,
 			"event_source":            md.Source,
 			"event_type":              md.Type,
 			"event_data_content_type": md.DataContentType,
