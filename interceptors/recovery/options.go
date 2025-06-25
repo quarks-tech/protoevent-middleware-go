@@ -23,7 +23,7 @@ type Option func(*options)
 
 func WithHandler(f HandlerFunc) Option {
 	return func(o *options) {
-		o.handlerFunc = HandlerFuncContext(func(ctx context.Context, p interface{}) error {
+		o.handlerFunc = HandlerFuncContext(func(ctx context.Context, p any) error {
 			return f(p)
 		})
 	}
