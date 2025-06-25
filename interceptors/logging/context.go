@@ -1,11 +1,13 @@
 package logging
 
-import (
-	"context"
+import "context"
 
-	"github.com/sirupsen/logrus"
-)
+const contextKey = "logger-cmcbmj0tl0000cg02ifqzvqeo" // same key as microkit/pkg/logger to avoid collisions
 
-type WithContext func(ctx context.Context, logger *logrus.Entry) context.Context
+func WithContext(ctx context.Context, entry Logger) context.Context {
+	return context.WithValue(ctx, contextKey, entry)
+}
 
-type FromContext func(context.Context) *logrus.Entry
+func FromContext(ctx context.Context) Logger {
+	return ctx.Value(contextKey).(Logger)
+}

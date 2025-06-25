@@ -818,7 +818,7 @@ func TestMetricsInterfaceCompliance(t *testing.T) {
 	registry := prometheus.NewRegistry()
 	pubMetrics.Register(registry)
 	subMetrics.Register(registry)
-	
+
 	// Trigger some metrics
 	pubInterceptor := pubMetrics.PublisherInterceptor()
 	mockPublisher := &eventbus.PublisherImpl{}
@@ -826,7 +826,7 @@ func TestMetricsInterfaceCompliance(t *testing.T) {
 		return nil
 	}
 	_ = pubInterceptor(context.Background(), "test.service.v1.TestEvent", "test-data", mockPublisher, mockPublishFn)
-	
+
 	subInterceptor := subMetrics.SubscriberInterceptor(WithEventQueue("test.queue"))
 	md := &event.Metadata{Type: "test.service.v1.TestEvent", ID: "test-123"}
 	handler := func(ctx context.Context, e any) error { return nil }
